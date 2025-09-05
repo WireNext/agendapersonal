@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Día y Organización</title>
+<style>
+:root {
+    --bg-color: #ffe4e6;
+    --header-bg: #f9c5d1;
+    --text-color: #4b1d3f;
+    --section-bg: #fff0f3;
+    --button-bg: #f9c5d1;
+    --button-hover: #f7a7c0;
+}
+body {
+    font-family: Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    transition: all 0.3s;
+}
+header {
+    background-color: var(--header-bg);
+    text-align: center;
+    padding: 20px;
+    font-size: 1.8em;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+main {
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+section {
+    background-color: var(--section-bg);
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+h2 { color: var(--text-color); }
+button {
+    background-color: var(--button-bg);
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    color: var(--text-color);
+}
+button:hover { background-color: var(--button-hover); }
+input {
+    padding: 6px;
+    border-radius: 5px;
+    border: 1px solid var(--button-bg);
+    margin-right: 10px;
+}
+ul { list-style-type: none; padding-left: 0; }
+li {
+    background-color: var(--bg-color);
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+li.done { text-decoration: line-through; color: #a36a86; }
+table { width: 100%; border-collapse: collapse; }
+th, td {
+    border: 1px solid var(--button-bg);
+    padding: 8px;
+    text-align: center;
+}
+td { cursor: pointer; }
+td:hover { background-color: var(--button-hover); color: white; }
+thead { background-color: var(--button-bg); }
+</style>
+</head>
+<body>
+<header>
+Mi Día y Organización
+<button onclick="cambiarTema()">Cambiar tema</button>
+</header>
+<main>
+
+<!-- Clima AEMET -->
+<section>
+<h2>Clima en Logroño y ropa sugerida</h2>
+<p id="sugerencia">Cargando clima...</p>
+<button onclick="obtenerClima()">Actualizar clima</button>
+</section>
+
+<!-- Recordatorios -->
+<section>
+<h2>Recordatorios para estudiar</h2>
+<input type="text" id="recordatorioInput" placeholder="Escribe tu recordatorio">
+<button onclick="agregarRecordatorio()">Agregar</button>
+<ul id="recordatoriosList"></ul>
+</section>
+
+<!-- Calendario Semanal -->
+<section>
+<h2>Calendario Semanal</h2>
+<div id="calendarWeek" style="overflow-x:auto;">
+  <table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+      <tr>
+        <th>Hora</th>
+        <th>Lunes</th>
+        <th>Martes</th>
+        <th>Miércoles</th>
+        <th>Jueves</th>
+        <th>Viernes</th>
+        <th>Sábado</th>
+        <th>Domingo</th>
+      </tr>
+    </thead>
+    <tbody id="calendarWeekBody"></tbody>
+  </table>
+</div>
+<p>Haz clic en una celda para añadir un evento</p>
+</section>
+
+<!-- Deberes -->
+<section>
+<h2>Lista de deberes</h2>
+<input type="text" id="deberInput" placeholder="Escribe un deber">
+<button onclick="agregarDeber()">Agregar</button>
+<ul id="deberesList"></ul>
+</section>
+
+<script>
+// --- Tema ---
+function cambiarTema() {
+    const temaActual = localStorage.getItem('tema') || 'rosa';
+    if(temaActual === 'rosa') {
+        document.documentElement.style.setProperty('--bg-color','#0f3d3e');
+        document.documentElement.style.setProperty('--header-bg','#14514f');
+        document.documentElement.style.setProperty('--text-color','#d4f1f4');
+        document.documentElement.style.setProperty('--section-bg','#1f5a5b');
+        document.documentElement.style.setProperty('--button-bg','#14514f');
+        document.documentElement.style.setProperty('--button-hover','#1f5a5b');
+        localStorage.setItem('tema','verde');
+    } else {
+        document.documentElement.style.setProperty('--bg-color','#ffe4e6');
+        document.documentElement.style.setProperty('--header-bg','#f9c5d1');
+        document.documentElement.style.setProperty('--text-color','#4b1d3f');
+        document.documentElement.style.setProperty('--section-bg','#fff0f3');
+        document.documentElement.style.setProperty('--button-bg','#f9c5d1');
+        document.documentElement.style.setProperty('--button-hover','#f7a7c0');
+        localStorage.setItem('tema','rosa');
+    }
+}
+window.addEventListener('DOMContentLoaded',()=>{
+    if(localStorage.getItem('tema')==='verde') cambiarTema();
+});
+
+// --- URL de AEMET ---
+const AEMET_URL = 'https://opendata.aemet.es/opendata/sh/eea5409d';
+
+// --- Clima AEMET ---
+async function obtenerClima() {
+    try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(AEMET_URL)}`;
+        const res = await fetch(proxyUrl);
+        const dataProxy = await res.json();
+        const prediccion = JSON.parse(dataProxy.contents)[0].prediccion.dia[0]; // Primer día
+        mostrarRopa(prediccion);
+    } catch(e) {
+        document.getElementById('sugerencia').textContent = 'No se pudo obtener el clima: ' + e.message;
+    }
+}
+
+function mostrarRopa(dia) {
+    const tempMax = dia.temperatura.maxima;
+    const tempMin = dia.temperatura.minima;
+    const estadoCieloObj = dia.estadoCielo.find(e => e.descripcion) || dia.estadoCielo[0];
+    const estadoCielo = estadoCieloObj.descripcion.toLowerCase();
+    let ropa = `Hoy en Logroño la temperatura será entre ${tempMin}°C y ${tempMax}°C. Estado del cielo: ${estadoCielo}. `;
+    if(estadoCielo.includes('lluvia')) ropa += 'No olvides el paraguas 🌧️ y ropa impermeable.';
+    else if(estadoCielo.includes('nublado')) ropa += 'Está nublado ☁️. Lleva una chaqueta ligera.';
+    else if(tempMax < 10) ropa += 'Hace frío ❄️. Abrígate con abrigo y bufanda.';
+    else ropa += 'Hace buen tiempo 🌞. Ropa ligera está bien.';
+    document.getElementById('sugerencia').textContent = ropa;
+}
+
+// --- Recordatorios ---
+function cargarRecordatorios() {
+    const recordatorios = JSON.parse(localStorage.getItem('recordatorios') || '[]');
+    recordatorios.forEach(texto => {
+        const li = document.createElement('li');
+        li.innerHTML = `${texto} <button onclick="eliminarRecordatorio(this)">❌</button>`;
+        document.getElementById('recordatoriosList').appendChild(li);
+    });
+}
+function guardarRecordatorios() {
+    const items = Array.from(document.querySelectorAll('#recordatoriosList li')).map(li => li.childNodes[0].textContent.trim());
+    localStorage.setItem('recordatorios', JSON.stringify(items));
+}
+function agregarRecordatorio() {
+    const input = document.getElementById('recordatorioInput');
+    const texto = input.value.trim();
+    if(!texto) return;
+    const li = document.createElement('li');
+    li.innerHTML = `${texto} <button onclick="eliminarRecordatorio(this)">❌</button>`;
+    document.getElementById('recordatoriosList').appendChild(li);
+    input.value = '';
+    guardarRecordatorios();
+}
+function eliminarRecordatorio(btn) {
+    btn.parentElement.remove();
+    guardarRecordatorios();
+}
+
+// --- Deberes ---
+function cargarDeberes() {
+    const deberes = JSON.parse(localStorage.getItem('deberes') || '[]');
+    deberes.forEach(d => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${d.text}</span> <button onclick="tacharDeber(this)">✓</button>`;
+        if(d.done) li.classList.add('done');
+        document.getElementById('deberesList').appendChild(li);
+    });
+}
+function guardarDeberes() {
+    const items = Array.from(document.querySelectorAll('#deberesList li')).map(li => ({
+        text: li.querySelector('span').textContent,
+        done: li.classList.contains('done')
+    }));
+    localStorage.setItem('deberes', JSON.stringify(items));
+}
+function agregarDeber() {
+    const input = document.getElementById('deberInput');
+    const texto = input.value.trim();
+    if(!texto) return;
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${texto}</span> <button onclick="tacharDeber(this)">✓</button>`;
+    document.getElementById('deberesList').appendChild(li);
+    input.value = '';
+    guardarDeberes();
+}
+function tacharDeber(btn) {
+    const li = btn.parentElement;
+    li.classList.toggle('done');
+    guardarDeberes();
+}
+
+// --- Calendario Semanal ---
+const calendarWeekBody = document.getElementById('calendarWeekBody');
+const horas = Array.from({length: 13}, (_, i) => 8 + i);
+const diasSemana = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+
+horas.forEach(h => {
+    const tr = document.createElement('tr');
+    const th = document.createElement('th');
+    th.textContent = `${h}:00`;
+    tr.appendChild(th);
+    for(let d=0; d<7; d++){
+        const td = document.createElement('td');
+        td.dataset.dia = d;
+        td.dataset.hora = h;
+        td.addEventListener('click',() => {
+            const texto = prompt(`Evento para ${diasSemana[d]} a las ${h}:00`, td.textContent || '');
+            if(texto !== null) {
+                td.textContent = texto;
+                guardarEventosSemana();
+            }
+        });
+        tr.appendChild(td);
+    }
+    calendarWeekBody.appendChild(tr);
+});
+
+function guardarEventosSemana() {
+    const data = {};
+    document.querySelectorAll('#calendarWeekBody td').forEach(td => {
+        if(td.textContent) data[`${td.dataset.dia}-${td.dataset.hora}`] = td.textContent;
+    });
+    localStorage.setItem('eventosSemana', JSON.stringify(data));
+}
+
+function cargarEventosSemana() {
+    const data = JSON.parse(localStorage.getItem('eventosSemana') || '{}');
+    document.querySelectorAll('#calendarWeekBody td').forEach(td => {
+        const key = `${td.dataset.dia}-${td.dataset.hora}`;
+        if(data[key]) td.textContent = data[key];
+    });
+}
+
+// --- Inicialización ---
+obtenerClima();
+cargarRecordatorios();
+cargarDeberes();
+cargarEventosSemana();
+</script>
+</body>
+</html>
